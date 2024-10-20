@@ -1,6 +1,6 @@
 RELEASE=snapshot
 RELEASEFOLDER=releases/$(RELEASE)
-RELEASEDASH=$(RELEASE)-
+RELEASEDASH=#$(RELEASE)-
 
 default: all
 
