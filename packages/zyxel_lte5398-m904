@@ -137,7 +137,6 @@ wifi-scripts
 wireless-regdb
 wpad-basic-mbedtls
 wwan
-
 #extra for full LTE features
 kmod-usb-serial-option 
 kmod-usb-net-cdc-mbim 
