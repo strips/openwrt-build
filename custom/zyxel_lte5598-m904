@@ -1,0 +1,166 @@
+### WORK IN PROGRESS!!! NOT WORKING YET
+
+# Change LAN to client dhcp to get IP from external DHCP
+#uci set network.lan.proto='dhcp'
+# Change LAN ip to fixed in case DHCP does not work
+# TEST, kommenter fjern kommentar hvis det funker
+uci set network.lan.device='lan2'
+uci set network.lan.type='bridge'
+uci set network.lan.proto='static'
+uci set network.lan.ipaddr='10.2.2.1'
+uci set network.lan.netmask='255.255.255.0'
+uci set network.lan.gateway='10.2.2.1'
+uci set network.lan.dns='10.2.2.1'
+uci set network.lan.network='lan'
+
+uci set network.lan.device='lan2'
+uci set network.lan.type='bridge'
+uci set network.lan.proto='static'
+uci set network.lan.ipaddr='192.168.1.2'
+uci set network.lan.netmask='255.255.255.0'
+uci set network.lan.gateway='192.168.1.1'
+uci set network.lan.dns='192.168.1.1'
+uci set network.lan.network='lan'
+
+# Change QMI mobile to wan_qmi
+uci rename network.wan='wan_qmi'
+uci set network.wan_qmi.network='wan'
+uci set network.wan_qmi.disabled='1'
+
+# Create new WAN for the ethernet WAN-port
+uci set network.wan_mbim=interface
+uci set network.wan_mbim.proto='mbim'
+uci set network.wan_mbim.device='/dev/cdc-wdm0'
+uci set network.wan_mbim.network='wan'
+uci set network.wan_mbim.disabled='1'
+
+# Create new WAN for the ethernet WAN-port
+uci set network.wan_ecm=interface
+uci set network.wan_ecm.proto='dhcp'
+uci set network.wan_ecm.device='usb0'
+uci set network.wan_ecm.network='wan'
+uci set network.wan_ecm.disabled='1'
+
+# Create new WAN for the ethernet WAN-port
+uci set network.wan=interface
+uci set network.wan.proto='dhcp'
+uci set network.wan.device='lan1'
+uci set network.wan.network='wan'
+
+# Remove now unused br-lan
+uci delete network.@device[0]
+
+# prepare possble Wireless WAN-connection
+uci set network.wwan=interface
+uci set network.wwan.proto='dhcp'
+
+uci commit network
+
+
+
+
+
+# rename wifi networks
+uci rename wireless.radio0='wifi24'
+uci rename wireless.radio1='wifi5'
+uci delete wireless.default_radio0
+uci delete wireless.default_radio1
+uci set wireless.wifi24.channel='auto'
+uci set wireless.wifi5.channel='auto'
+uci set wireless.wifi5.htmode='VHT40'
+uci commit wireless
+
+# /etc/config/wireless
+uci del wireless.wifi24.disabled
+uci set wireless.wifinet0=wifi-iface
+uci set wireless.wifinet0.device='wifi24'
+uci set wireless.wifinet0.mode='ap'
+uci set wireless.wifinet0.ssid='airborne'
+uci set wireless.wifinet0.encryption='sae-mixed'
+uci set wireless.wifinet0.key='tippex00'
+uci set wireless.wifinet0.ocv='0'
+uci set wireless.wifinet0.network='lan'
+uci set wireless.wifi24.cell_density='0'
+uci commit wireless
+
+# Client mode 2.4Ghz WWAN
+uci set wireless.wifinet1=wifi-iface
+uci set wireless.wifinet1.device='wifi24'
+uci set wireless.wifinet1.mode='sta'
+uci set wireless.wifinet1.network='wwan'
+uci set wireless.wifinet1.ssid='starborne'
+uci set wireless.wifinet1.encryption='psk2'
+uci set wireless.wifinet1.key='tippex00'
+uci set wireless.wifi24.channel='auto'
+uci commit wireless
+
+uci del wireless.wifi5.disabled
+uci set wireless.wifinet2=wifi-iface
+uci set wireless.wifinet2.device='wifi5'
+uci set wireless.wifinet2.mode='ap'
+uci set wireless.wifinet2.ssid='airborne5'
+uci set wireless.wifinet2.encryption='sae-mixed'
+uci set wireless.wifinet2.key='tippex00'
+uci set wireless.wifinet2.ocv='0'
+uci set wireless.wifinet2.network='lan'
+uci set wireless.wifi5.cell_density='0'
+uci commit wireless
+
+
+
+
+
+uci add network device # =cfg090f15
+uci set network.@device[-1].type='bridge'
+uci set network.@device[-1].name='br-lan'
+uci add_list network.@device[-1].ports='lan2'
+uci add_list network.@device[-1].ports='phy0-ap0'
+uci add_list network.@device[-1].ports='phy1-ap0'
+uci commit network
+
+
+
+
+
+
+# Assuming @zone[1] is WAN
+uci add_list firewall.@zone[1].network='wan_ecm'
+uci add_list firewall.@zone[1].network='wan_mbim'
+uci add_list firewall.@zone[1].network='wan_qmi'
+uci del_list firewall.@zone[1].network='wan6'
+uci del_list firewall.@zone[1].network='wan'
+uci commit firewall
+
+# WANL_LOCAL - local ethernet port or Client mode STA
+uci add firewall zone # =cfg0edc81
+uci set firewall.@zone[-1].name='wan_local'
+uci set firewall.@zone[-1].input='REJECT'
+uci set firewall.@zone[-1].output='ACCEPT'
+uci set firewall.@zone[-1].forward='REJECT'
+uci set firewall.@zone[-1].masq='1'
+uci set firewall.@zone[-1].mtu_fix='1'
+uci add_list firewall.@zone[-1].network='wan'
+uci add_list firewall.@zone[-1].network='wwan'
+
+uci add firewall forwarding # =cfg0fad58
+uci set firewall.@forwarding[-1].src='lan'
+uci set firewall.@forwarding[-1].dest='wan_local'
+
+uci commit firewall
+
+##### Only to enable HTTPS and SSH on WAN_LOCAL. Do not do this on a bridged WAN with public IP unless you know what you are doing.
+# HTTPS
+uci add firewall rule # =cfg1092bd
+uci set firewall.@rule[-1].name='HTTPS-WAN_LOCAL'
+uci add_list firewall.@rule[-1].proto='tcp'
+uci set firewall.@rule[-1].src='wan_local'
+uci set firewall.@rule[-1].dest_port='443'
+uci set firewall.@rule[-1].target='ACCEPT'
+# SSH
+uci add firewall rule # =cfg1192bd
+uci set firewall.@rule[-1].name='SSH-WAN_LOCAL'
+uci add_list firewall.@rule[-1].proto='tcp'
+uci set firewall.@rule[-1].src='wan_local'
+uci set firewall.@rule[-1].dest_port='443'
+uci set firewall.@rule[-1].target='ACCEPT'
+uci commit firewall
